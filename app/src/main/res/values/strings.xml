@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">BitLock</string>
+    <string name="email_textbox">Email</string>
+    <string name="password_textbox">Password</string>
+    <string name="login_button">Login</string>
+    <string name="status">Status:</string>
+    <string name="register">Don\'t have an account yet? Register!</string>
+    <string name="add_device_name">Device Name</string>
+    <string name="add_device_button">Add</string>
+</resources>

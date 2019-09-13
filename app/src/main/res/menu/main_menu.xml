@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_add_master"
+        android:title="Add master"
+        app:showAsAction="never"/>
+
+   <item
+       android:id="@+id/action_add_device"
+       android:icon="@drawable/ic_register"
+       android:title="Add device"
+       app:showAsAction="always"/>
+
+</menu>
