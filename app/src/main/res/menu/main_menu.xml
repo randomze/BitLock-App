@@ -7,10 +7,15 @@
         android:title="Add master"
         app:showAsAction="never"/>
 
+    <item
+        android:id="@+id/action_logout"
+        android:title="@string/logout"
+        app:showAsAction="never"/>
+
    <item
        android:id="@+id/action_add_device"
        android:icon="@drawable/ic_register"
        android:title="Add device"
-       app:showAsAction="always"/>
+       app:showAsAction="ifRoom"/>
 
 </menu>
