@@ -24,21 +24,27 @@ public abstract class Request implements Runnable {
 
     public final void run() {
         try {
+            Log.d("httpreq", "openning connection");
             URL uri = new URL(url);
             con = (HttpURLConnection) uri.openConnection();
 
+            Log.d("httpreq", "setting up");
             con.setRequestMethod(method);
             setHeaders();
+
+            Log.d("httpreq", "sending body if appropriate");
             if(method.equals("POST")) {
                OutputStream os = con.getOutputStream();
                os.write(body.getBytes());
                os.close();
             }
 
+            Log.d("httpreq", "reading response");
             BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
             String line;
             StringBuffer buf = new StringBuffer();
 
+            Log.d("httpreq", "merda");
             while((line = in.readLine()) != null) {
                buf.append(line);
             }

@@ -128,6 +128,7 @@ public class LoginActivity extends AppCompatActivity {
             if(response.getString("status").equals("success")) {
                 session.login(email, password, response.getString("unique"));
                 session.setToken(response.getString("token"));
+                session.setMasterID("");
                 this.finish();
             }
         } catch(Exception e) {

@@ -3,6 +3,7 @@ package com.example.eletrolock;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -38,14 +39,13 @@ public class HomeListActivity extends AppCompatActivity {
     Queue<Request> queue;
 
     String herokuURL = "https://bitlock-api.herokuapp.com";
-    ArrayList<String> devices;
+    String deviceName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         queue = new LinkedList<>();
-        devices = new ArrayList<>();
         session = new UserSessionManager(getApplicationContext());
         threadPool = Executors.newSingleThreadExecutor();
 
@@ -58,6 +58,12 @@ public class HomeListActivity extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_main);
+
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
 
         Handler refreshDevices = new Handler();
         refreshDevices.postDelayed(new Runnable() {
@@ -84,22 +90,29 @@ public class HomeListActivity extends AppCompatActivity {
 
     public void addDevice() {
         LayoutInflater inflater = getLayoutInflater();
-        View popup = inflater.inflate(R.layout.activity_add_device, null);
+        final View popup = inflater.inflate(R.layout.activity_add_device, null);
         AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
 
-        Button addButton = popup.findViewById(R.id.addDeviceButton);
+        alertDialogBuilder.setView(popup)
+                .setPositiveButton("Add",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog,
+                                                int id) {
 
-        addButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if(session.getMasterID() != null) {
-                    queue.add(new MasterRequest("GET", "/devices", ""));
-                    threadPool.submit(queue.peek());
+                                deviceName = ((EditText)popup.findViewById(R.id.editDeviceName)).getText().toString();
+                                queue.add(new MasterRequest("GET", "/devices/", ""));
+                                threadPool.submit(queue.peek());
+                            }
+                        })
+                .setNegativeButton("Cancel",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog,
+                                                int id) {
+                                dialog.cancel();
+                            }
+                        });
 
-                    ((AlertDialog)view.getParent()).cancel();
-                }
-            }
-        });
 
         alertDialogBuilder.setTitle("Add device");
         alertDialogBuilder.setCancelable(true);
@@ -126,12 +139,14 @@ public class HomeListActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch(item.getItemId()) {
             case R.id.action_add_master:
-                if(session.getMasterID().equals("")) {
-                    queue.add(new MasterRequest("GET", "/", ""));
-                    threadPool.submit(queue.peek());
-                } else {
-                    Toast.makeText(HomeListActivity.this, "Already registered master", Toast.LENGTH_SHORT).show();
-                }
+                queue.add(new MasterRequest("GET", "/", ""));
+                threadPool.submit(queue.peek());
+                return true;
+
+            case R.id.action_logout:
+                session.logout();
+                Intent triggerLogin = new Intent(this, LoginActivity.class);
+                startActivity(triggerLogin);
 
                 return true;
 
@@ -206,36 +221,42 @@ public class HomeListActivity extends AppCompatActivity {
                 }
             } else if (request.getUrl().equals("http://" + master.getMasterIP() + "/")) {
                 if(request.getMethod().equals("GET")) {
-                    if(request.getResponse().equals("ITS A ME, BITLOCK!")) {
+                    if(request.getResponse().startsWith("ITS A ME, BITLOCK!")) {
                         queue.add(new HerokuRequest("POST", "/devices/" + session.getUnique() + "/master", session.getToken(), ""));
                         threadPool.submit(queue.peek());
+                        Toast.makeText(HomeListActivity.this, "Found master, trying to register it", Toast.LENGTH_SHORT).show();
                     } else {
                         session.setMasterID(request.getResponse());
+                        Toast.makeText(HomeListActivity.this, "Master already registered, taking note of id", Toast.LENGTH_SHORT).show();
                     }
 
                 } else {
 
                 }
-            } else if (request.getUrl().equals("http://" + master.getMasterIP() + "/devices")) {
+            } else if (request.getUrl().equals("http://" + master.getMasterIP() + "/devices/")) {
                 if(request.getMethod().equals("GET")) {
-                    if(request.getResponse().equals("Device waiting to be registered")) {
-                        queue.add(new MasterRequest("POST", "/devices", ((EditText) findViewById(R.id.editDeviceName)).getText().toString()));
+                    if(request.getResponse().startsWith("Device waiting to be registered")) {
+                        queue.add(new MasterRequest("POST", "/devices/", deviceName));
                         threadPool.submit(queue.peek());
+                        Toast.makeText(HomeListActivity.this, "Devices waiting, attempting to register", Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(HomeListActivity.this, "No device to be registered", Toast.LENGTH_SHORT).show();
                     }
                 } else {
-                    if(request.getResponse().equals("DONE")) {
+                    if(request.getResponse().startsWith("DONE")) {
+                        Toast.makeText(HomeListActivity.this, "Device registered locally, connecting to api", Toast.LENGTH_SHORT).show();
                         JSONObject body = new JSONObject();
                         try {
                             body.put("master_id", session.getMasterID());
-                            body.put("identifier", ((EditText) findViewById(R.id.editDeviceName)).getText().toString());
+                            body.put("identifier", deviceName);
                         } catch(Exception e) {
                             Log.d("JSON", "ERROR: " + e);
                         }
 
                         queue.add(new HerokuRequest("POST", "/devices/" + session.getUnique(), session.getToken(), body.toString()));
                         threadPool.submit(queue.peek());
+                    } else {
+                        Toast.makeText(HomeListActivity.this, "Some error registering the device on the local network", Toast.LENGTH_SHORT).show();
                     }
                 }
             }
@@ -249,7 +270,6 @@ public class HomeListActivity extends AppCompatActivity {
         public HerokuRequest(String _method, String _file, String _token, String _body) {
             super(_method, herokuURL + _file, _body);
             token = _token;
-            Log.d("token", token);
         }
 
         protected void setHeaders() {
@@ -287,7 +307,7 @@ public class HomeListActivity extends AppCompatActivity {
                 soc.setReuseAddress(true);
                 soc.setBroadcast(true);
                 InetAddress address = InetAddress.getByName("255.255.255.255");
-                byte[] buf = ("ping").getBytes();
+                byte[] buf = ("Finding Bitlock").getBytes();
                 DatagramPacket packet = new DatagramPacket(buf, buf.length, address, 2004);
                 soc.send(packet);
 
@@ -298,7 +318,7 @@ public class HomeListActivity extends AppCompatActivity {
                     soc.receive(recpacket);
                     String recmessage = new String(message, 0, recpacket.getLength());
                     Log.d("udp", recmessage);
-                    if (recmessage.equals("acknowledged")) {
+                    if (recmessage.equals("You found me, lying on the floor")) {
                         Log.d("udp", "success");
                         Log.d("udp", "ip: " + recpacket.getAddress().toString());
                         masterIP = recpacket.getAddress().toString().substring(1);

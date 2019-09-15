@@ -45,6 +45,16 @@ public class UserSessionManager {
         return preferences.getString("token", null);
     }
 
+    public void logout() {
+        editor.remove("email");
+        editor.remove("password");
+        editor.remove("unique");
+        editor.remove("token");
+        editor.remove("masterID");
+
+        editor.commit();
+    }
+
     public HashMap<String, String> getUserLogin() {
         HashMap<String, String> user = new HashMap<String, String>();
 
